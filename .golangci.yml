@@ -1,0 +1,12 @@
+linters:
+  enable-all: true
+  disable:
+    - mnd
+    - godox
+    - forbidigo
+    - exportloopref
+linters-settings:
+  gosmopolitan:
+    escape-hatches:
+      - 'fmt.Printf'
+      - 'fmt.Println'

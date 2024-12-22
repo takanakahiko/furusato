@@ -23,3 +23,6 @@ go.work.sum
 
 # env file
 .env
+
+# setting file for fufursato
+furusato.yml

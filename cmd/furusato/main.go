@@ -1,23 +1,30 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
 
 	furusato "github.com/takanakahiko/furusato/internal"
 )
 
 func main() {
-	// 入力データ(ダミーデータ)
-	input := furusato.TaxCalculationInput{
-		SalaryIncome:        5_000_000,
-		MiscellaneousIncome: 100_000,
-		BusinessIncome:      500_000,
-		MedicalExpenses:     150_000,
-		SocialInsurance:     600_000,
-		DependentCount:      1,
-		SpouseDeduction:     true,
-		Method:              furusato.ElectronicDeclaration,
+	// コマンドライン引数の解析
+	inputPath := flag.String("input", "furusato.yml", "yaml input file")
+	flag.Parse()
+
+	// 入力データの読み込み
+	input, err := furusato.LoadInput(*inputPath)
+	if err != nil {
+		log.Fatal("LoadInput err", err)
 	}
+
+	// 入力データの表示
+	if err := furusato.PrintInput(input); err != nil {
+		log.Fatal("json.MarshalIndent err", err)
+	}
+
+	fmt.Println() // 改行
 
 	// 所得税
 	fmt.Printf("所得税にかかる課税所得: %d円\n", furusato.TaxableIncomeForIncomeTax(input))

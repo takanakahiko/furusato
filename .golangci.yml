@@ -10,3 +10,16 @@ linters-settings:
     escape-hatches:
       - 'fmt.Printf'
       - 'fmt.Println'
+  revive:
+    rules:
+      - name: exported
+        arguments:
+          - checkPrivateReceivers
+          - disableStutteringCheck
+          - checkPublicInterface
+  depguard:
+    rules:
+      main:
+        allow:
+          - $gostd
+          - github.com/takanakahiko/furusato/internal

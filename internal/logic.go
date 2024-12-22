@@ -20,10 +20,12 @@ const (
 )
 
 // BlueDeduction is 青色申告控除額.
-func BlueDeduction(method declarationMethod, businessIncome int) int {
+func BlueDeduction(method DeclarationMethod, businessIncome int) int {
 	var baseDeduction int
 
 	switch method {
+	case NoneDeclaration:
+		baseDeduction = 0
 	case ElectronicDeclaration:
 		baseDeduction = 650_000
 	case PaperDeclaration:
@@ -31,9 +33,9 @@ func BlueDeduction(method declarationMethod, businessIncome int) int {
 	case SimpleDeclaration:
 		baseDeduction = 100_000
 	default:
-		baseDeduction = 100_000
+		baseDeduction = 0
 
-		fmt.Println("不正な申請方法が指定されました。簡易帳簿（10万円控除）を適用します。")
+		fmt.Println("不正な申請方法が指定されました。青色申告控除なしを適用します。")
 	}
 
 	if businessIncome < baseDeduction {
@@ -100,7 +102,7 @@ func TaxableIncome(input TaxCalculationInput, basicDeduction int) int {
 	medicalDeduction := MedicalDeduction(input)
 
 	// 申告特別控除
-	blueDeduction := BlueDeduction(input.Method, input.BusinessIncome)
+	blueDeduction := BlueDeduction(input.DeclarationMethod, input.BusinessIncome)
 
 	// 扶養控除
 	dependentDeduction := input.DependentCount * 380_000 // TODO 特定扶養親族などの分は別途計算が必要

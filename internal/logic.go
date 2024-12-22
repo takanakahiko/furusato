@@ -1,4 +1,4 @@
-package main
+package furusato
 
 import (
 	"fmt"
@@ -17,20 +17,6 @@ const (
 
 	// residentTaxBasicDeduction is 住民税の基礎控除.
 	residentTaxBasicDeduction = 430_000
-)
-
-// declarationMethod is 申請方法.
-type declarationMethod int
-
-const (
-	//  ElectronicDeclaration is 電子申告+電子帳簿保存.
-	ElectronicDeclaration declarationMethod = iota
-
-	// ElectronicDeclaration is 紙帳簿.
-	PaperDeclaration
-
-	// SimpleDeclaration is 簡易帳簿.
-	SimpleDeclaration
 )
 
 // BlueDeduction is 青色申告控除額.
@@ -55,29 +41,6 @@ func BlueDeduction(method declarationMethod, businessIncome int) int {
 	}
 
 	return baseDeduction
-}
-
-// TaxCalculationInput is 入力データをまとめる構造体.
-type TaxCalculationInput struct {
-	// SalaryIncome is 給与収入(源泉徴収票の"支払金額")
-	SalaryIncome int
-	// MiscellaneousIncome is雑所得
-	MiscellaneousIncome int
-	// BusinessIncome is 事業所得
-	BusinessIncome int
-	// MedicalExpenses is 医療費
-	MedicalExpenses int
-	// SocialInsurance is 社会保険料控除
-	SocialInsurance int
-	// DependentCount is 扶養親族数(一般の控除対象扶養親族)
-	DependentCount int
-	// SpouseDeduction is 配偶者控除の適用有無
-	SpouseDeduction bool
-	// Method is 申告方法
-	Method declarationMethod
-
-	// furusatoAmount is 内部的に効果を算出するためのふるさと納税額
-	furusatoAmount int
 }
 
 // salaryIncomeDeduction is 給与所得控除額.
@@ -119,6 +82,16 @@ func MedicalDeduction(input TaxCalculationInput) int {
 	}
 
 	return medicalDeduction
+}
+
+// TaxableIncomeForIncomeTax is 所得税にかかる課税所得.
+func TaxableIncomeForIncomeTax(input TaxCalculationInput) int {
+	return TaxableIncome(input, incomeTaxBasicDeduction)
+}
+
+// TaxableIncomeForResindentTax is 住民税にかかる課税所得.
+func TaxableIncomeForResindentTax(input TaxCalculationInput) int {
+	return TaxableIncome(input, residentTaxBasicDeduction)
 }
 
 // TaxableIncome is 課税所得.
@@ -279,17 +252,9 @@ func FurusatoNozeiLimit(input TaxCalculationInput) int {
 	// 所得税率と控除額
 	incomeTaxRate, _ := CalculateIncomeTaxRate(input, incomeTaxBasicDeduction)
 	incomeTaxRateWithForReconstruction := incomeTaxRate * (1 + specialIncomeTaxRateForReconstruction)
-	fmt.Printf("所得税率: %f\n", incomeTaxRate)
-
-	// 所得税
-	incomeTax := IncomeTax(input) // 所得税
-	fmt.Printf("所得税にかかる課税所得: %d\n", TaxableIncome(input, incomeTaxBasicDeduction))
-	fmt.Printf("所得税: %d\n", incomeTax)
 
 	// 住民税
 	residentTax := ResidentTax(input, true) // 住民税所得割額
-	fmt.Printf("住民税にかかる課税所得: %d\n", TaxableIncome(input, residentTaxBasicDeduction))
-	fmt.Printf("住民税所得割額: %d円\n\n", residentTax)
 
 	// ふるさと納税の控除上限額
 	// https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/furusato/mechanism/deduction.html
@@ -298,38 +263,4 @@ func FurusatoNozeiLimit(input TaxCalculationInput) int {
 	// 個人住民税所得割額 * 20％ = (X-2,000円) * (90％-所得税の税率)
 	// X = 個人住民税所得割額 * 20％ /（90％-所得税の税率）+ 2,000円
 	return int(float64(residentTax)*0.2/(1-residentTaxRate-incomeTaxRateWithForReconstruction)) + 2000
-}
-
-func main() {
-	// 入力データ(ダミーデータ)
-	input := TaxCalculationInput{
-		SalaryIncome:        5_000_000,
-		MiscellaneousIncome: 100_000,
-		BusinessIncome:      500_000,
-		MedicalExpenses:     150_000,
-		SocialInsurance:     600_000,
-		DependentCount:      1,
-		SpouseDeduction:     true,
-		Method:              ElectronicDeclaration,
-		furusatoAmount:      0,
-	}
-
-	// 所得税
-	incomeTax := IncomeTax(input)
-	fmt.Printf("所得税にかかる課税所得: %d\n", TaxableIncome(input, incomeTaxBasicDeduction))
-	fmt.Printf("所得税: %d\n", incomeTax)
-
-	// 住民税
-	residentTax := ResidentTax(input, true)
-	fmt.Printf("住民税にかかる課税所得: %d\n", TaxableIncome(input, residentTaxBasicDeduction))
-	fmt.Printf("住民税所得割額: %d円\n\n", residentTax)
-
-	// ふるさと納税の控除上限額
-	limit := FurusatoNozeiLimit(input)
-	fmt.Printf("ふるさと納税で使える上限額は: %d円です\n\n", limit)
-
-	// ふるさと納税の控除額
-	limit = 63536
-	fmt.Printf("所得税からの控除: %d円\n", input.FurusatoDeductionOfIncomeTax(limit))
-	fmt.Printf("住民税からの控除: %d円\n", input.FurusatoDeductionOfResidentTax(limit))
 }

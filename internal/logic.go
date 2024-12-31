@@ -128,36 +128,22 @@ func TaxableIncome(input TaxCalculationInput, basicDeduction int) int {
 func CalculateIncomeTaxRate(input TaxCalculationInput, basicDeduction int) (float64, int) {
 	taxableIncome := TaxableIncome(input, basicDeduction)
 
-	var (
-		rate      float64
-		deduction int
-	)
-
 	switch {
 	case taxableIncome <= 1_949_000:
-		rate = 0.05
-		deduction = 0
+		return 0.05, 0
 	case taxableIncome <= 3_299_999:
-		rate = 0.10
-		deduction = 97_500
+		return 0.10, 97_500
 	case taxableIncome <= 6_949_999:
-		rate = 0.20
-		deduction = 427_500
+		return 0.20, 427_500
 	case taxableIncome <= 8_999_999:
-		rate = 0.23
-		deduction = 636_000
+		return 0.23, 636_000
 	case taxableIncome <= 17_999_999:
-		rate = 0.33
-		deduction = 1_536_000
+		return 0.33, 1_536_000
 	case taxableIncome <= 39_999_999:
-		rate = 0.40
-		deduction = 2_796_000
+		return 0.40, 2_796_000
 	default:
-		rate = 0.45
-		deduction = 4_796_000
+		return 0.45, 4_796_000
 	}
-
-	return rate, deduction
 }
 
 // IncomeTax is 所得税(復興特別所得税を含む).

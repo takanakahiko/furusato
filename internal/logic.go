@@ -7,17 +7,40 @@ import (
 
 const (
 	// residentTaxRate is 住民税率.
-	residentTaxRate = 0.10025 // 神奈川県
+	residentTaxRate = 0.10 // 標準税率
 
 	// specialIncomeTaxRateForReconstruction is 復興特別所得税率.
 	specialIncomeTaxRateForReconstruction = 0.021
 
-	// incomeTaxBasicDeduction is 所得税の基礎控除.
-	incomeTaxBasicDeduction = 480_000
-
 	// residentTaxBasicDeduction is 住民税の基礎控除.
 	residentTaxBasicDeduction = 430_000
 )
+
+// incomeTaxBasicDeduction は所得税の基礎控除を計算する.
+// 令和7年度税制改正により、合計所得金額に応じて段階的に設定.
+// https://www.nta.go.jp/users/gensen/2025kiso/index.htm
+func incomeTaxBasicDeduction(totalIncome int) int {
+	switch {
+	case totalIncome <= 1_320_000:
+		return 950_000
+	case totalIncome <= 3_360_000:
+		return 880_000
+	case totalIncome <= 4_890_000:
+		return 680_000
+	case totalIncome <= 6_550_000:
+		return 630_000
+	case totalIncome <= 23_500_000:
+		return 580_000
+	case totalIncome <= 24_000_000:
+		return 480_000
+	case totalIncome <= 24_500_000:
+		return 320_000
+	case totalIncome <= 25_000_000:
+		return 160_000
+	default:
+		return 0
+	}
+}
 
 // BlueDeduction is 青色申告控除額.
 func BlueDeduction(method DeclarationMethod, businessIncome int) int {
@@ -45,15 +68,15 @@ func BlueDeduction(method DeclarationMethod, businessIncome int) int {
 	return baseDeduction
 }
 
-// salaryIncomeDeduction is 給与所得控除額.
+// salaryIncomeDeduction は給与所得控除額を計算する.
+// 令和7年度税制改正により、最低保障額が55万円→65万円に引き上げ.
+// https://www.nta.go.jp/users/gensen/2025kiso/index.htm
 func salaryIncomeDeduction(income int) int {
 	switch {
-	case income <= 1_625_000:
-		return 550_000
-	case income <= 1_800_000:
-		return int(float64(income)*0.4) - 100_000
+	case income <= 1_900_000:
+		return 650_000
 	case income <= 3_600_000:
-		return int(float64(income)*0.3) - 80_000
+		return int(float64(income)*0.3) + 80_000
 	case income <= 6_600_000:
 		return int(float64(income)*0.2) + 440_000
 	case income <= 8_500_000:
@@ -88,7 +111,7 @@ func MedicalDeduction(input TaxCalculationInput) int {
 
 // TaxableIncomeForIncomeTax is 所得税にかかる課税所得.
 func TaxableIncomeForIncomeTax(input TaxCalculationInput) int {
-	return TaxableIncome(input, incomeTaxBasicDeduction)
+	return TaxableIncome(input, incomeTaxBasicDeduction(TotalIncome(input)))
 }
 
 // TaxableIncomeForResindentTax is 住民税にかかる課税所得.
@@ -149,7 +172,8 @@ func CalculateIncomeTaxRate(input TaxCalculationInput, basicDeduction int) (floa
 // IncomeTax is 所得税(復興特別所得税を含む).
 func IncomeTax(input TaxCalculationInput) int {
 	// 課税所得
-	taxableIncome := TaxableIncome(input, incomeTaxBasicDeduction)
+	basicDeduction := incomeTaxBasicDeduction(TotalIncome(input))
+	taxableIncome := TaxableIncome(input, basicDeduction)
 
 	// ふるさと納税の控除
 	// 所得税からの控除をする場合は税から控除するのではなく、課税所得から控除する（後の短数切り捨てに巻き込まれる）
@@ -164,7 +188,7 @@ func IncomeTax(input TaxCalculationInput) int {
 	taxableIncome = taxableIncome / 1000 * 1000 // 1000円未満の端数切り捨て
 
 	// 特別所得税を含めた所得税率と控除額
-	rate, deduction := CalculateIncomeTaxRate(input, incomeTaxBasicDeduction)
+	rate, deduction := CalculateIncomeTaxRate(input, basicDeduction)
 
 	incomeTax := int(float64(taxableIncome)*rate) - deduction
 	if incomeTax < 0 {
@@ -208,7 +232,7 @@ func ResidentTax(input TaxCalculationInput, noFurusato bool) int {
 	//
 	//nolint:lll
 	if input.furusatoAmount > 0 && !noFurusato {
-		incomeTaxRate, _ := CalculateIncomeTaxRate(input, incomeTaxBasicDeduction)
+		incomeTaxRate, _ := CalculateIncomeTaxRate(input, incomeTaxBasicDeduction(TotalIncome(input)))
 		incomeTaxRateWithForReconstruction := incomeTaxRate * (1 + specialIncomeTaxRateForReconstruction)
 		residentTax -= int(float64(input.furusatoAmount-2000) * residentTaxRate)
 
@@ -238,7 +262,7 @@ func (input TaxCalculationInput) FurusatoDeductionOfResidentTax(furusatoAmount i
 // FurusatoNozeiLimit is ふるさと納税の控除上限額.
 func FurusatoNozeiLimit(input TaxCalculationInput) int {
 	// 所得税率と控除額
-	incomeTaxRate, _ := CalculateIncomeTaxRate(input, incomeTaxBasicDeduction)
+	incomeTaxRate, _ := CalculateIncomeTaxRate(input, incomeTaxBasicDeduction(TotalIncome(input)))
 	incomeTaxRateWithForReconstruction := incomeTaxRate * (1 + specialIncomeTaxRateForReconstruction)
 
 	// 住民税

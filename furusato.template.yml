@@ -19,6 +19,9 @@ dependentCount: 1
 # 配偶者控除の適用有無
 spouseDeduction: true
 
+# 住宅借入金等特別控除額
+housingLoanDeduction: 0
+
 # 申告方法
 # electronic or paper or simple
 declarationMethod: electronic

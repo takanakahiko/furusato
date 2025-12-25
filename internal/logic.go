@@ -208,6 +208,70 @@ func IncomeTax(input TaxCalculationInput) int {
 	return incomeTax
 }
 
+// HousingLoanDeductionForResidentTax は住民税から控除できる住宅ローン控除額を計算する.
+// 所得税から控除しきれなかった額を住民税から控除できる（上限あり）.
+// https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/090929.html
+func HousingLoanDeductionForResidentTax(input TaxCalculationInput) int {
+	if input.HousingLoanDeduction == 0 {
+		return 0
+	}
+
+	// 所得税額（住宅ローン控除前）
+	incomeTaxBeforeHousing := IncomeTaxBeforeHousingLoan(input)
+
+	// 所得税から控除しきれない額
+	remainingDeduction := input.HousingLoanDeduction - incomeTaxBeforeHousing
+	if remainingDeduction <= 0 {
+		return 0
+	}
+
+	// 住民税からの控除上限額
+	// 所得税の課税所得金額×7%（最高136,500円）
+	// ※2014年4月以降入居で消費税8%または10%の場合
+	basicDeduction := incomeTaxBasicDeduction(TotalIncome(input))
+	taxableIncome := TaxableIncome(input, basicDeduction)
+	maxDeduction := int(float64(taxableIncome) * 0.07)
+	if maxDeduction > 136_500 {
+		maxDeduction = 136_500
+	}
+
+	if remainingDeduction > maxDeduction {
+		return maxDeduction
+	}
+
+	return remainingDeduction
+}
+
+// IncomeTaxBeforeHousingLoan は住宅ローン控除前の所得税額を計算する.
+func IncomeTaxBeforeHousingLoan(input TaxCalculationInput) int {
+	// 課税所得
+	basicDeduction := incomeTaxBasicDeduction(TotalIncome(input))
+	taxableIncome := TaxableIncome(input, basicDeduction)
+
+	// ふるさと納税の控除
+	if input.furusatoAmount > 0 {
+		taxableIncome -= (input.furusatoAmount - 2000)
+	}
+
+	// 課税所得金額を1000円未満の端数切り捨て
+	taxableIncome = taxableIncome / 1000 * 1000
+
+	// 所得税率と控除額
+	rate, deduction := CalculateIncomeTaxRate(input, basicDeduction)
+
+	incomeTax := int(float64(taxableIncome)*rate) - deduction
+	if incomeTax < 0 {
+		return 0
+	}
+
+	incomeTax += int(float64(incomeTax) * specialIncomeTaxRateForReconstruction)
+
+	// 100円未満の端数切り捨て
+	incomeTax = incomeTax / 100 * 100
+
+	return incomeTax
+}
+
 // ResidentTax is 住民税所得割額(均等割額は含まない).
 func ResidentTax(input TaxCalculationInput, noFurusato bool) int {
 	// TODO: 調整控除は面倒で計算していません
@@ -225,6 +289,10 @@ func ResidentTax(input TaxCalculationInput, noFurusato bool) int {
 
 	// 住民税所得割額
 	residentTax := int(float64(taxableIncome)*residentTaxRate) - adjastmentDeduction
+
+	// 住宅ローン控除（住民税からの控除分）
+	housingDeduction := HousingLoanDeductionForResidentTax(input)
+	residentTax -= housingDeduction
 
 	// ふるさと納税の控除
 	// 住民税からの控除をする場合は所得から控除するのではなく、税から控除する

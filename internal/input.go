@@ -65,6 +65,8 @@ type TaxCalculationInput struct {
 	DependentCount int `yaml:"dependentCount"`
 	// SpouseDeduction is 配偶者控除の適用有無
 	SpouseDeduction bool `yaml:"spouseDeduction"`
+	// HousingLoanDeduction is 住宅借入金等特別控除額
+	HousingLoanDeduction int `yaml:"housingLoanDeduction"`
 	// Method is 申告方法
 	DeclarationMethod DeclarationMethod `yaml:"declarationMethod"`
 

@@ -7,7 +7,8 @@ import (
 
 const (
 	// residentTaxRate is 住民税率.
-	residentTaxRate = 0.10 // 標準税率
+	// 横浜市: 市民税8% + 県民税2.025%(2% + 水源環境保全税0.025%) = 10.025%
+	residentTaxRate = 0.10025
 
 	// specialIncomeTaxRateForReconstruction is 復興特別所得税率.
 	specialIncomeTaxRateForReconstruction = 0.021
@@ -123,6 +124,74 @@ func EarthquakeInsuranceDeduction(input TaxCalculationInput, taxType TaxType) in
 	return min(deduction, maxDeduction)
 }
 
+// lifeInsuranceDeductionPerCategory は生命保険料控除の各区分の控除額を計算する.
+// 新制度（2012年1月1日以降の契約）の計算式を使用.
+// https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm
+func lifeInsuranceDeductionPerCategory(premium int, taxType TaxType) int {
+	switch taxType {
+	case IncomeTaxType:
+		// 所得税の計算式（新制度）
+		// 〜20,000円: 全額
+		// 20,001〜40,000円: 支払額×1/2 + 10,000円
+		// 40,001〜80,000円: 支払額×1/4 + 20,000円
+		// 80,001円〜: 一律40,000円
+		switch {
+		case premium <= 20_000:
+			return premium
+		case premium <= 40_000:
+			return premium/2 + 10_000
+		case premium <= 80_000:
+			return premium/4 + 20_000
+		default:
+			return 40_000
+		}
+	case ResidentTaxType:
+		// 住民税の計算式（新制度）
+		// 〜12,000円: 全額
+		// 12,001〜32,000円: 支払額×1/2 + 6,000円
+		// 32,001〜56,000円: 支払額×1/4 + 14,000円
+		// 56,001円〜: 一律28,000円
+		switch {
+		case premium <= 12_000:
+			return premium
+		case premium <= 32_000:
+			return premium/2 + 6_000
+		case premium <= 56_000:
+			return premium/4 + 14_000
+		default:
+			return 28_000
+		}
+	default:
+		return 0
+	}
+}
+
+// LifeInsuranceDeduction は生命保険料控除の合計額を計算する.
+// 一般生命保険料、介護医療保険料、個人年金保険料の3区分の合計.
+// 所得税: 各区分上限40,000円、合計上限120,000円
+// 住民税: 各区分上限28,000円、合計上限70,000円
+// https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm
+func LifeInsuranceDeduction(input TaxCalculationInput, taxType TaxType) int {
+	generalDeduction := lifeInsuranceDeductionPerCategory(input.LifeInsuranceGeneral, taxType)
+	medicalDeduction := lifeInsuranceDeductionPerCategory(input.LifeInsuranceMedical, taxType)
+	pensionDeduction := lifeInsuranceDeductionPerCategory(input.LifeInsurancePension, taxType)
+
+	total := generalDeduction + medicalDeduction + pensionDeduction
+
+	// 合計上限額
+	var maxTotal int
+	switch taxType {
+	case IncomeTaxType:
+		maxTotal = 120_000
+	case ResidentTaxType:
+		maxTotal = 70_000
+	default:
+		return 0
+	}
+
+	return min(total, maxTotal)
+}
+
 // MedicalDeduction is 医療費控除.
 func MedicalDeduction(input TaxCalculationInput) int {
 	// 医療費控除
@@ -178,10 +247,13 @@ func TaxableIncome(input TaxCalculationInput, taxType TaxType) int {
 	// 地震保険料控除
 	earthquakeDeduction := EarthquakeInsuranceDeduction(input, taxType)
 
+	// 生命保険料控除
+	lifeInsuranceDeduction := LifeInsuranceDeduction(input, taxType)
+
 	// 課税所得
 	taxableIncome := TotalIncome(input) - medicalDeduction -
 		blueDeduction - input.SocialInsurance - dependentDeduction - spouseDeduction -
-		earthquakeDeduction - basicDeduction
+		earthquakeDeduction - lifeInsuranceDeduction - basicDeduction
 	if taxableIncome < 0 {
 		return 0
 	}

@@ -65,8 +65,14 @@ type TaxCalculationInput struct {
 	DependentCount int `yaml:"dependentCount"`
 	// SpouseDeduction is 配偶者控除の適用有無
 	SpouseDeduction bool `yaml:"spouseDeduction"`
-	// EarthquakeInsurance is 地震保険料（年間支払額）
+	// EarthquakeInsurance is 地震保険料（控除証明書の証明額）
 	EarthquakeInsurance int `yaml:"earthquakeInsurance"`
+	// LifeInsuranceGeneral is 一般生命保険料（控除証明書の証明額、新制度）
+	LifeInsuranceGeneral int `yaml:"lifeInsuranceGeneral"`
+	// LifeInsuranceMedical is 介護医療保険料（控除証明書の証明額）
+	LifeInsuranceMedical int `yaml:"lifeInsuranceMedical"`
+	// LifeInsurancePension is 個人年金保険料（控除証明書の証明額、新制度）
+	LifeInsurancePension int `yaml:"lifeInsurancePension"`
 	// HousingLoanDeduction is 住宅借入金等特別控除額
 	HousingLoanDeduction int `yaml:"housingLoanDeduction"`
 	// DeclarationMethod is 申告方法

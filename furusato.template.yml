@@ -19,6 +19,9 @@ dependentCount: 1
 # 配偶者控除の適用有無
 spouseDeduction: true
 
+# 地震保険料（年間支払額）
+earthquakeInsurance: 0
+
 # 住宅借入金等特別控除額
 housingLoanDeduction: 0
 

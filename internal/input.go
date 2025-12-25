@@ -65,9 +65,11 @@ type TaxCalculationInput struct {
 	DependentCount int `yaml:"dependentCount"`
 	// SpouseDeduction is 配偶者控除の適用有無
 	SpouseDeduction bool `yaml:"spouseDeduction"`
+	// EarthquakeInsurance is 地震保険料（年間支払額）
+	EarthquakeInsurance int `yaml:"earthquakeInsurance"`
 	// HousingLoanDeduction is 住宅借入金等特別控除額
 	HousingLoanDeduction int `yaml:"housingLoanDeduction"`
-	// Method is 申告方法
+	// DeclarationMethod is 申告方法
 	DeclarationMethod DeclarationMethod `yaml:"declarationMethod"`
 
 	// furusatoAmount is 内部的に減税効果を算出するためのふるさと納税額

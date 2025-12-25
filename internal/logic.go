@@ -7,7 +7,7 @@ import (
 
 const (
 	// residentTaxRate is 住民税率.
-	// 横浜市: 市民税8% + 県民税2.025%(2% + 水源環境保全税0.025%) = 10.025%
+	// 横浜市: 市民税8% + 県民税2.025%(2% + 水源環境保全税0.025%) = 10.025%.
 	residentTaxRate = 0.10025
 
 	// specialIncomeTaxRateForReconstruction is 復興特別所得税率.
@@ -124,43 +124,51 @@ func EarthquakeInsuranceDeduction(input TaxCalculationInput, taxType TaxType) in
 	return min(deduction, maxDeduction)
 }
 
+// lifeInsuranceDeductionForIncomeTax は所得税の生命保険料控除額を計算する（新制度）.
+// 〜20,000円: 全額
+// 20,001〜40,000円: 支払額×1/2 + 10,000円
+// 40,001〜80,000円: 支払額×1/4 + 20,000円
+// 80,001円〜: 一律40,000円.
+func lifeInsuranceDeductionForIncomeTax(premium int) int {
+	switch {
+	case premium <= 20_000:
+		return premium
+	case premium <= 40_000:
+		return premium/2 + 10_000
+	case premium <= 80_000:
+		return premium/4 + 20_000
+	default:
+		return 40_000
+	}
+}
+
+// lifeInsuranceDeductionForResidentTax は住民税の生命保険料控除額を計算する（新制度）.
+// 〜12,000円: 全額
+// 12,001〜32,000円: 支払額×1/2 + 6,000円
+// 32,001〜56,000円: 支払額×1/4 + 14,000円
+// 56,001円〜: 一律28,000円.
+func lifeInsuranceDeductionForResidentTax(premium int) int {
+	switch {
+	case premium <= 12_000:
+		return premium
+	case premium <= 32_000:
+		return premium/2 + 6_000
+	case premium <= 56_000:
+		return premium/4 + 14_000
+	default:
+		return 28_000
+	}
+}
+
 // lifeInsuranceDeductionPerCategory は生命保険料控除の各区分の控除額を計算する.
 // 新制度（2012年1月1日以降の契約）の計算式を使用.
 // https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm
 func lifeInsuranceDeductionPerCategory(premium int, taxType TaxType) int {
 	switch taxType {
 	case IncomeTaxType:
-		// 所得税の計算式（新制度）
-		// 〜20,000円: 全額
-		// 20,001〜40,000円: 支払額×1/2 + 10,000円
-		// 40,001〜80,000円: 支払額×1/4 + 20,000円
-		// 80,001円〜: 一律40,000円
-		switch {
-		case premium <= 20_000:
-			return premium
-		case premium <= 40_000:
-			return premium/2 + 10_000
-		case premium <= 80_000:
-			return premium/4 + 20_000
-		default:
-			return 40_000
-		}
+		return lifeInsuranceDeductionForIncomeTax(premium)
 	case ResidentTaxType:
-		// 住民税の計算式（新制度）
-		// 〜12,000円: 全額
-		// 12,001〜32,000円: 支払額×1/2 + 6,000円
-		// 32,001〜56,000円: 支払額×1/4 + 14,000円
-		// 56,001円〜: 一律28,000円
-		switch {
-		case premium <= 12_000:
-			return premium
-		case premium <= 32_000:
-			return premium/2 + 6_000
-		case premium <= 56_000:
-			return premium/4 + 14_000
-		default:
-			return 28_000
-		}
+		return lifeInsuranceDeductionForResidentTax(premium)
 	default:
 		return 0
 	}
@@ -180,6 +188,7 @@ func LifeInsuranceDeduction(input TaxCalculationInput, taxType TaxType) int {
 
 	// 合計上限額
 	var maxTotal int
+
 	switch taxType {
 	case IncomeTaxType:
 		maxTotal = 120_000
@@ -261,7 +270,7 @@ func TaxableIncome(input TaxCalculationInput, taxType TaxType) int {
 	return taxableIncome
 }
 
-// 所得税率と控除額(所得税には復興特別所得税を含まない)
+// CalculateIncomeTaxRate は所得税率と控除額を計算する(所得税には復興特別所得税を含まない).
 // https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm
 func CalculateIncomeTaxRate(input TaxCalculationInput) (float64, int) {
 	taxableIncome := TaxableIncome(input, IncomeTaxType)
@@ -341,12 +350,9 @@ func HousingLoanDeductionForResidentTax(input TaxCalculationInput) int {
 
 	// 住民税からの控除上限額
 	// 所得税の課税所得金額×7%（最高136,500円）
-	// ※2014年4月以降入居で消費税8%または10%の場合
+	// ※2014年4月以降入居で消費税8%または10%の場合.
 	taxableIncome := TaxableIncome(input, IncomeTaxType)
-	maxDeduction := int(float64(taxableIncome) * 0.07)
-	if maxDeduction > 136_500 {
-		maxDeduction = 136_500
-	}
+	maxDeduction := min(int(float64(taxableIncome)*0.07), 136_500)
 
 	if remainingDeduction > maxDeduction {
 		return maxDeduction
@@ -408,9 +414,9 @@ func ResidentTax(input TaxCalculationInput, noFurusato bool) int {
 
 	// ふるさと納税の控除
 	// 住民税からの控除をする場合は所得から控除するのではなく、税から控除する
+	//nolint:lll // URLが長いため
 	// https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/zeigakukoujo.html
 	//
-	//nolint:lll
 	if input.furusatoAmount > 0 && !noFurusato {
 		incomeTaxRate, _ := CalculateIncomeTaxRate(input)
 		incomeTaxRateWithForReconstruction := incomeTaxRate * (1 + specialIncomeTaxRateForReconstruction)
@@ -425,6 +431,7 @@ func ResidentTax(input TaxCalculationInput, noFurusato bool) int {
 	return residentTax
 }
 
+// FurusatoDeductionOfIncomeTax はふるさと納税による所得税の控除額を計算する.
 func (input TaxCalculationInput) FurusatoDeductionOfIncomeTax(furusatoAmount int) int {
 	input2 := input
 	input2.furusatoAmount = furusatoAmount
@@ -432,6 +439,7 @@ func (input TaxCalculationInput) FurusatoDeductionOfIncomeTax(furusatoAmount int
 	return IncomeTax(input) - IncomeTax(input2)
 }
 
+// FurusatoDeductionOfResidentTax はふるさと納税による住民税の控除額を計算する.
 func (input TaxCalculationInput) FurusatoDeductionOfResidentTax(furusatoAmount int) int {
 	input2 := input
 	input2.furusatoAmount = furusatoAmount
@@ -439,8 +447,8 @@ func (input TaxCalculationInput) FurusatoDeductionOfResidentTax(furusatoAmount i
 	return ResidentTax(input, true) - ResidentTax(input2, false)
 }
 
-// FurusatoNozeiLimit is ふるさと納税の控除上限額.
-func FurusatoNozeiLimit(input TaxCalculationInput) int {
+// FurusatonozeiLimit is ふるさと納税の控除上限額.
+func FurusatonozeiLimit(input TaxCalculationInput) int {
 	// 所得税率と控除額
 	incomeTaxRate, _ := CalculateIncomeTaxRate(input)
 	incomeTaxRateWithForReconstruction := incomeTaxRate * (1 + specialIncomeTaxRateForReconstruction)

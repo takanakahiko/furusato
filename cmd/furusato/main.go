@@ -1,3 +1,4 @@
+// Package main はふるさと納税の控除上限額を計算するCLIツールです.
 package main
 
 import (
@@ -11,6 +12,7 @@ import (
 func main() {
 	// コマンドライン引数の解析
 	inputPath := flag.String("input", "furusato.yml", "yaml input file")
+
 	flag.Parse()
 
 	// 入力データの読み込み
@@ -20,7 +22,8 @@ func main() {
 	}
 
 	// 入力データの表示
-	if err := furusato.PrintInput(input); err != nil {
+	err = furusato.PrintInput(input)
+	if err != nil {
 		log.Fatal("json.MarshalIndent err", err)
 	}
 
@@ -35,7 +38,7 @@ func main() {
 	fmt.Printf("住民税所得割額: %d円\n\n", furusato.ResidentTax(input, true))
 
 	// ふるさと納税の控除上限額
-	limit := furusato.FurusatoNozeiLimit(input)
+	limit := furusato.FurusatonozeiLimit(input)
 	fmt.Printf("ふるさと納税で使える上限額は: %d円\n\n", limit)
 
 	// ふるさと納税の控除額

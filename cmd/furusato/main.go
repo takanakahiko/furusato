@@ -31,11 +31,11 @@ func main() {
 
 	// 所得税
 	fmt.Printf("所得税にかかる課税所得: %d円\n", furusato.TaxableIncomeForIncomeTax(input))
-	fmt.Printf("所得税: %d円\n\n", furusato.IncomeTax(input))
+	fmt.Printf("所得税: %d円\n\n", furusato.IncomeTax(input, true))
 
 	// 住民税
-	fmt.Printf("住民税にかかる課税所得: %d円\n", furusato.TaxableIncomeForResindentTax(input))
-	fmt.Printf("住民税所得割額: %d円\n\n", furusato.ResidentTax(input, true))
+	fmt.Printf("住民税にかかる課税所得: %d円\n", furusato.TaxableIncomeForResidentTax(input))
+	fmt.Printf("住民税所得割額: %d円\n\n", furusato.ResidentTax(input, false))
 
 	// ふるさと納税の控除上限額
 	limit := furusato.FurusatonozeiLimit(input)

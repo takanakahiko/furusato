@@ -1,9 +1,6 @@
 package furusato
 
-import (
-	"fmt"
-	"math"
-)
+import "fmt"
 
 const (
 	// residentTaxRate is 住民税率.
@@ -17,14 +14,14 @@ const (
 	residentTaxBasicDeduction = 430_000
 )
 
-// TaxType は税区分を表す.
-type TaxType int
+// taxType は税区分を表す.
+type taxType int
 
 const (
-	// IncomeTaxType は所得税.
-	IncomeTaxType TaxType = iota
-	// ResidentTaxType は住民税.
-	ResidentTaxType
+	// incomeTaxType は所得税.
+	incomeTaxType taxType = iota
+	// residentTaxType は住民税.
+	residentTaxType
 )
 
 // incomeTaxBasicDeduction は所得税の基礎控除を計算する.
@@ -53,8 +50,8 @@ func incomeTaxBasicDeduction(totalIncome int) int {
 	}
 }
 
-// BlueDeduction is 青色申告控除額.
-func BlueDeduction(method DeclarationMethod, businessIncome int) int {
+// blueDeduction is 青色申告控除額.
+func blueDeduction(method DeclarationMethod, businessIncome int) int {
 	var baseDeduction int
 
 	switch method {
@@ -72,11 +69,7 @@ func BlueDeduction(method DeclarationMethod, businessIncome int) int {
 		fmt.Println("不正な申請方法が指定されました。青色申告控除なしを適用します。")
 	}
 
-	if businessIncome < baseDeduction {
-		return businessIncome
-	}
-
-	return baseDeduction
+	return min(baseDeduction, businessIncome)
 }
 
 // salaryIncomeDeduction は給与所得控除額を計算する.
@@ -87,34 +80,34 @@ func salaryIncomeDeduction(income int) int {
 	case income <= 1_900_000:
 		return 650_000
 	case income <= 3_600_000:
-		return int(float64(income)*0.3) + 80_000
+		return income*3/10 + 80_000
 	case income <= 6_600_000:
-		return int(float64(income)*0.2) + 440_000
+		return income*2/10 + 440_000
 	case income <= 8_500_000:
-		return int(float64(income)*0.1) + 1_100_000
+		return income/10 + 1_100_000
 	default:
 		return 1_950_000
 	}
 }
 
-// TotalIncome is 総所得(給与所得控除済み).
-func TotalIncome(input TaxCalculationInput) int {
+// totalIncome is 総所得(給与所得控除済み).
+func totalIncome(input TaxCalculationInput) int {
 	return input.SalaryIncome - salaryIncomeDeduction(input.SalaryIncome) +
 		input.MiscellaneousIncome + input.BusinessIncome
 }
 
-// EarthquakeInsuranceDeduction は地震保険料控除額を計算する.
+// earthquakeInsuranceDeduction は地震保険料控除額を計算する.
 // 所得税: 支払額全額（上限50,000円）
 // 住民税: 支払額の1/2（上限25,000円）
 // https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1145.htm
-func EarthquakeInsuranceDeduction(input TaxCalculationInput, taxType TaxType) int {
+func earthquakeInsuranceDeduction(input TaxCalculationInput, taxType taxType) int {
 	var deduction, maxDeduction int
 
 	switch taxType {
-	case IncomeTaxType:
+	case incomeTaxType:
 		deduction = input.EarthquakeInsurance
 		maxDeduction = 50_000
-	case ResidentTaxType:
+	case residentTaxType:
 		deduction = input.EarthquakeInsurance / 2
 		maxDeduction = 25_000
 	default:
@@ -163,23 +156,23 @@ func lifeInsuranceDeductionForResidentTax(premium int) int {
 // lifeInsuranceDeductionPerCategory は生命保険料控除の各区分の控除額を計算する.
 // 新制度（2012年1月1日以降の契約）の計算式を使用.
 // https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm
-func lifeInsuranceDeductionPerCategory(premium int, taxType TaxType) int {
+func lifeInsuranceDeductionPerCategory(premium int, taxType taxType) int {
 	switch taxType {
-	case IncomeTaxType:
+	case incomeTaxType:
 		return lifeInsuranceDeductionForIncomeTax(premium)
-	case ResidentTaxType:
+	case residentTaxType:
 		return lifeInsuranceDeductionForResidentTax(premium)
 	default:
 		return 0
 	}
 }
 
-// LifeInsuranceDeduction は生命保険料控除の合計額を計算する.
+// lifeInsuranceDeduction は生命保険料控除の合計額を計算する.
 // 一般生命保険料、介護医療保険料、個人年金保険料の3区分の合計.
 // 所得税: 各区分上限40,000円、合計上限120,000円
 // 住民税: 各区分上限28,000円、合計上限70,000円
 // https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1140.htm
-func LifeInsuranceDeduction(input TaxCalculationInput, taxType TaxType) int {
+func lifeInsuranceDeduction(input TaxCalculationInput, taxType taxType) int {
 	generalDeduction := lifeInsuranceDeductionPerCategory(input.LifeInsuranceGeneral, taxType)
 	medicalDeduction := lifeInsuranceDeductionPerCategory(input.LifeInsuranceMedical, taxType)
 	pensionDeduction := lifeInsuranceDeductionPerCategory(input.LifeInsurancePension, taxType)
@@ -190,9 +183,9 @@ func LifeInsuranceDeduction(input TaxCalculationInput, taxType TaxType) int {
 	var maxTotal int
 
 	switch taxType {
-	case IncomeTaxType:
+	case incomeTaxType:
 		maxTotal = 120_000
-	case ResidentTaxType:
+	case residentTaxType:
 		maxTotal = 70_000
 	default:
 		return 0
@@ -201,48 +194,43 @@ func LifeInsuranceDeduction(input TaxCalculationInput, taxType TaxType) int {
 	return min(total, maxTotal)
 }
 
-// MedicalDeduction is 医療費控除.
-func MedicalDeduction(input TaxCalculationInput) int {
+// medicalDeduction is 医療費控除.
+func medicalDeduction(input TaxCalculationInput) int {
 	// 医療費控除
-	totalIncome := TotalIncome(input)
+	totalIncome := totalIncome(input)
 
 	// 医療費控除のしきい値（所得の5%または10万円のいずれか低い方）
-	threshold := int(math.Min(float64(totalIncome)*0.05, 100_000))
+	threshold := min(totalIncome*5/100, 100_000)
 
 	// 医療費控除
-	medicalDeduction := input.MedicalExpenses - threshold
-	if medicalDeduction < 0 {
-		return 0
-	}
-
-	return medicalDeduction
+	return max(0, input.MedicalExpenses-threshold)
 }
 
 // TaxableIncomeForIncomeTax is 所得税にかかる課税所得.
 func TaxableIncomeForIncomeTax(input TaxCalculationInput) int {
-	return TaxableIncome(input, IncomeTaxType)
+	return taxableIncome(input, incomeTaxType)
 }
 
-// TaxableIncomeForResindentTax is 住民税にかかる課税所得.
-func TaxableIncomeForResindentTax(input TaxCalculationInput) int {
-	return TaxableIncome(input, ResidentTaxType)
+// TaxableIncomeForResidentTax is 住民税にかかる課税所得.
+func TaxableIncomeForResidentTax(input TaxCalculationInput) int {
+	return taxableIncome(input, residentTaxType)
 }
 
-// TaxableIncome is 課税所得.
-func TaxableIncome(input TaxCalculationInput, taxType TaxType) int {
+// taxableIncome is 課税所得.
+func taxableIncome(input TaxCalculationInput, taxType taxType) int {
 	// 基礎控除
 	var basicDeduction int
-	if taxType == IncomeTaxType {
-		basicDeduction = incomeTaxBasicDeduction(TotalIncome(input))
+	if taxType == incomeTaxType {
+		basicDeduction = incomeTaxBasicDeduction(totalIncome(input))
 	} else {
 		basicDeduction = residentTaxBasicDeduction
 	}
 
 	// 医療費控除
-	medicalDeduction := MedicalDeduction(input)
+	medicalDeduction := medicalDeduction(input)
 
 	// 申告特別控除
-	blueDeduction := BlueDeduction(input.DeclarationMethod, input.BusinessIncome)
+	blueDeduction := blueDeduction(input.DeclarationMethod, input.BusinessIncome)
 
 	// 扶養控除
 	dependentDeduction := input.DependentCount * 380_000 // TODO 特定扶養親族などの分は別途計算が必要
@@ -254,26 +242,30 @@ func TaxableIncome(input TaxCalculationInput, taxType TaxType) int {
 	}
 
 	// 地震保険料控除
-	earthquakeDeduction := EarthquakeInsuranceDeduction(input, taxType)
+	earthquakeDeduction := earthquakeInsuranceDeduction(input, taxType)
 
 	// 生命保険料控除
-	lifeInsuranceDeduction := LifeInsuranceDeduction(input, taxType)
+	lifeInsuranceDeduction := lifeInsuranceDeduction(input, taxType)
 
 	// 課税所得
-	taxableIncome := TotalIncome(input) - medicalDeduction -
+	taxableIncome := totalIncome(input) - medicalDeduction -
 		blueDeduction - input.SocialInsurance - dependentDeduction - spouseDeduction -
 		earthquakeDeduction - lifeInsuranceDeduction - basicDeduction
-	if taxableIncome < 0 {
-		return 0
-	}
 
-	return taxableIncome
+	return max(0, taxableIncome)
 }
 
-// CalculateIncomeTaxRate は所得税率と控除額を計算する(所得税には復興特別所得税を含まない).
+// incomeTaxRateWithReconstruction は復興特別所得税を含む所得税率を計算する.
+func incomeTaxRateWithReconstruction(input TaxCalculationInput) float64 {
+	rate, _ := calculateIncomeTaxRate(input)
+
+	return rate * (1 + specialIncomeTaxRateForReconstruction)
+}
+
+// calculateIncomeTaxRate は所得税率と控除額を計算する(所得税には復興特別所得税を含まない).
 // https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/2260.htm
-func CalculateIncomeTaxRate(input TaxCalculationInput) (float64, int) {
-	taxableIncome := TaxableIncome(input, IncomeTaxType)
+func calculateIncomeTaxRate(input TaxCalculationInput) (float64, int) {
+	taxableIncome := taxableIncome(input, incomeTaxType)
 
 	switch {
 	case taxableIncome <= 1_949_000:
@@ -294,9 +286,10 @@ func CalculateIncomeTaxRate(input TaxCalculationInput) (float64, int) {
 }
 
 // IncomeTax is 所得税(復興特別所得税を含む).
-func IncomeTax(input TaxCalculationInput) int {
+// applyHousingLoanDeduction が true の場合、住宅ローン控除を適用する.
+func IncomeTax(input TaxCalculationInput, applyHousingLoanDeduction bool) int {
 	// 課税所得
-	taxableIncome := TaxableIncome(input, IncomeTaxType)
+	taxableIncome := taxableIncome(input, incomeTaxType)
 
 	// ふるさと納税の控除
 	// 所得税からの控除をする場合は税から控除するのではなく、課税所得から控除する（後の短数切り捨てに巻き込まれる）
@@ -308,108 +301,70 @@ func IncomeTax(input TaxCalculationInput) int {
 	// 課税所得金額を1000円未満の端数切り捨て
 	// https://www.nta.go.jp/publication/pamph/koho/kurashi/html/02_1.htm
 	// > 1,000円未満切捨て
-	taxableIncome = taxableIncome / 1000 * 1000 // 1000円未満の端数切り捨て
+	taxableIncome = truncateTo1000(taxableIncome)
 
 	// 特別所得税を含めた所得税率と控除額
-	rate, deduction := CalculateIncomeTaxRate(input)
+	rate, deduction := calculateIncomeTaxRate(input)
 
-	incomeTax := int(float64(taxableIncome)*rate) - deduction
-	if incomeTax < 0 {
-		return 0
-	}
+	incomeTax := max(0, int(float64(taxableIncome)*rate)-deduction)
 
 	incomeTax += int(float64(incomeTax) * specialIncomeTaxRateForReconstruction)
 
-	// 定額減税
-	// incomeTax = incomeTax - 30000
+	// 住宅ローン控除
+	if applyHousingLoanDeduction && input.HousingLoanDeduction > 0 {
+		incomeTax = max(0, incomeTax-input.HousingLoanDeduction)
+	}
 
 	// 100円未満の端数切り捨て
 	// https://www.nta.go.jp/publication/pamph/koho/kurashi/html/01_1.htm
 	// > 100円未満切捨て
-	incomeTax = incomeTax / 100 * 100 // 100円未満の端数切り捨て
-
-	return incomeTax
+	return truncateTo100(incomeTax)
 }
 
-// HousingLoanDeductionForResidentTax は住民税から控除できる住宅ローン控除額を計算する.
+// housingLoanDeductionForResidentTax は住民税から控除できる住宅ローン控除額を計算する.
 // 所得税から控除しきれなかった額を住民税から控除できる（上限あり）.
 // https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/090929.html
-func HousingLoanDeductionForResidentTax(input TaxCalculationInput) int {
+func housingLoanDeductionForResidentTax(input TaxCalculationInput) int {
 	if input.HousingLoanDeduction == 0 {
 		return 0
 	}
 
 	// 所得税額（住宅ローン控除前）
-	incomeTaxBeforeHousing := IncomeTaxBeforeHousingLoan(input)
+	incomeTaxBeforeHousing := IncomeTax(input, false)
 
 	// 所得税から控除しきれない額
-	remainingDeduction := input.HousingLoanDeduction - incomeTaxBeforeHousing
-	if remainingDeduction <= 0 {
-		return 0
-	}
+	remainingDeduction := max(0, input.HousingLoanDeduction-incomeTaxBeforeHousing)
 
 	// 住民税からの控除上限額
 	// 所得税の課税所得金額×7%（最高136,500円）
 	// ※2014年4月以降入居で消費税8%または10%の場合.
-	taxableIncome := TaxableIncome(input, IncomeTaxType)
-	maxDeduction := min(int(float64(taxableIncome)*0.07), 136_500)
+	taxableIncome := taxableIncome(input, incomeTaxType)
+	maxDeduction := min(taxableIncome*7/100, 136_500)
 
-	if remainingDeduction > maxDeduction {
-		return maxDeduction
-	}
-
-	return remainingDeduction
-}
-
-// IncomeTaxBeforeHousingLoan は住宅ローン控除前の所得税額を計算する.
-func IncomeTaxBeforeHousingLoan(input TaxCalculationInput) int {
-	// 課税所得
-	taxableIncome := TaxableIncome(input, IncomeTaxType)
-
-	// ふるさと納税の控除
-	if input.furusatoAmount > 0 {
-		taxableIncome -= (input.furusatoAmount - 2000)
-	}
-
-	// 課税所得金額を1000円未満の端数切り捨て
-	taxableIncome = taxableIncome / 1000 * 1000
-
-	// 所得税率と控除額
-	rate, deduction := CalculateIncomeTaxRate(input)
-
-	incomeTax := int(float64(taxableIncome)*rate) - deduction
-	if incomeTax < 0 {
-		return 0
-	}
-
-	incomeTax += int(float64(incomeTax) * specialIncomeTaxRateForReconstruction)
-
-	// 100円未満の端数切り捨て
-	incomeTax = incomeTax / 100 * 100
-
-	return incomeTax
+	return min(remainingDeduction, maxDeduction)
 }
 
 // ResidentTax is 住民税所得割額(均等割額は含まない).
-func ResidentTax(input TaxCalculationInput, noFurusato bool) int {
+// applyFurusatoDeduction が true の場合、ふるさと納税による控除を適用する.
+func ResidentTax(input TaxCalculationInput, applyFurusatoDeduction bool) int {
 	// TODO: 調整控除は面倒で計算していません
 	// https://www.city.itabashi.tokyo.jp/tetsuduki/zei/kuminzei/1001751.html
-	adjastmentDeduction := 2500 // 調整控除
+	adjustmentDeduction := 2500 // 調整控除
 
 	// 課税所得
-	taxableIncome := TaxableIncome(input, ResidentTaxType)
+	taxableIncome := taxableIncome(input, residentTaxType)
 
 	// 住民税の課税標準額
 	// 1000円未満の端数切り捨て
 	// https://www.city.tokyo-nakano.lg.jp/kurashi/zeikin/jyuminzei-kazei/jyuminzei-keisanrei.html
 	// > 課税標準額は、所得合計額から所得控除合計額を差し引いた額（1,000円未満切り捨て）です。
-	taxableIncome = taxableIncome / 1000 * 1000
+	taxableIncome = truncateTo1000(taxableIncome)
 
 	// 住民税所得割額
-	residentTax := int(float64(taxableIncome)*residentTaxRate) - adjastmentDeduction
+	residentTax := int(float64(taxableIncome)*residentTaxRate) - adjustmentDeduction
 
 	// 住宅ローン控除（住民税からの控除分）
-	housingDeduction := HousingLoanDeductionForResidentTax(input)
+	housingDeduction := housingLoanDeductionForResidentTax(input)
 	residentTax -= housingDeduction
 
 	// ふるさと納税の控除
@@ -417,18 +372,15 @@ func ResidentTax(input TaxCalculationInput, noFurusato bool) int {
 	//nolint:lll // URLが長いため
 	// https://www.city.yokohama.lg.jp/kurashi/koseki-zei-hoken/zeikin/y-shizei/kojin-shiminzei-kenminzei/kojin-shiminzei-shosai/zeigakukoujo.html
 	//
-	if input.furusatoAmount > 0 && !noFurusato {
-		incomeTaxRate, _ := CalculateIncomeTaxRate(input)
-		incomeTaxRateWithForReconstruction := incomeTaxRate * (1 + specialIncomeTaxRateForReconstruction)
+	if input.furusatoAmount > 0 && applyFurusatoDeduction {
+		rateWithReconstruction := incomeTaxRateWithReconstruction(input)
 		residentTax -= int(float64(input.furusatoAmount-2000) * residentTaxRate)
 
 		// TODO: 限度額を超えた場合のロジックを書いたほうがいい
-		residentTax -= int(float64(input.furusatoAmount-2000) * (1.0 - residentTaxRate - incomeTaxRateWithForReconstruction))
+		residentTax -= int(float64(input.furusatoAmount-2000) * (1.0 - residentTaxRate - rateWithReconstruction))
 	}
 
-	residentTax = residentTax / 100 * 100 // 100円未満の端数切り捨て
-
-	return residentTax
+	return truncateTo100(max(0, residentTax))
 }
 
 // FurusatoDeductionOfIncomeTax はふるさと納税による所得税の控除額を計算する.
@@ -436,7 +388,7 @@ func (input TaxCalculationInput) FurusatoDeductionOfIncomeTax(furusatoAmount int
 	input2 := input
 	input2.furusatoAmount = furusatoAmount
 
-	return IncomeTax(input) - IncomeTax(input2)
+	return IncomeTax(input, true) - IncomeTax(input2, true)
 }
 
 // FurusatoDeductionOfResidentTax はふるさと納税による住民税の控除額を計算する.
@@ -444,17 +396,16 @@ func (input TaxCalculationInput) FurusatoDeductionOfResidentTax(furusatoAmount i
 	input2 := input
 	input2.furusatoAmount = furusatoAmount
 
-	return ResidentTax(input, true) - ResidentTax(input2, false)
+	return ResidentTax(input, false) - ResidentTax(input2, true)
 }
 
 // FurusatonozeiLimit is ふるさと納税の控除上限額.
 func FurusatonozeiLimit(input TaxCalculationInput) int {
-	// 所得税率と控除額
-	incomeTaxRate, _ := CalculateIncomeTaxRate(input)
-	incomeTaxRateWithForReconstruction := incomeTaxRate * (1 + specialIncomeTaxRateForReconstruction)
+	// 所得税率（復興特別所得税含む）
+	rateWithReconstruction := incomeTaxRateWithReconstruction(input)
 
 	// 住民税
-	residentTax := ResidentTax(input, true) // 住民税所得割額
+	residentTax := ResidentTax(input, false) // 住民税所得割額（ふるさと納税控除なし）
 
 	// ふるさと納税の控除上限額
 	// https://www.soumu.go.jp/main_sosiki/jichi_zeisei/czaisei/czaisei_seido/furusato/mechanism/deduction.html
@@ -462,5 +413,15 @@ func FurusatonozeiLimit(input TaxCalculationInput) int {
 	// 住民税からの控除（特例分） = （ふるさと納税額 - 2,000円）×（100％ - 10％（基本分） - 所得税の税率）
 	// 個人住民税所得割額 * 20％ = (X-2,000円) * (90％-所得税の税率)
 	// X = 個人住民税所得割額 * 20％ /（90％-所得税の税率）+ 2,000円
-	return int(float64(residentTax)*0.2/(1-residentTaxRate-incomeTaxRateWithForReconstruction)) + 2000
+	return int(float64(residentTax)*0.2/(1-residentTaxRate-rateWithReconstruction)) + 2000
+}
+
+// truncateTo1000 は1000円未満を切り捨てる.
+func truncateTo1000(n int) int {
+	return n / 1000 * 1000
+}
+
+// truncateTo100 は100円未満を切り捨てる.
+func truncateTo100(n int) int {
+	return n / 100 * 100
 }

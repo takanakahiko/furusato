@@ -19,6 +19,18 @@ dependentCount: 1
 # 配偶者控除の適用有無
 spouseDeduction: true
 
+# 地震保険料（控除証明書の「地震保険料の金額」または「証明額」）
+earthquakeInsurance: 0
+
+# 生命保険料（控除証明書の「証明額」または「申告額」）
+# ※新制度（2012年1月1日以降の契約）のみ対応
+lifeInsuranceGeneral: 0    # 一般生命保険料
+lifeInsuranceMedical: 0    # 介護医療保険料
+lifeInsurancePension: 0    # 個人年金保険料
+
+# 住宅借入金等特別控除額
+housingLoanDeduction: 0
+
 # 申告方法
 # electronic or paper or simple
 declarationMethod: electronic

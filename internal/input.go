@@ -1,3 +1,4 @@
+// Package furusato はふるさと納税の控除上限額を計算するパッケージです.
 package furusato
 
 import (
@@ -8,17 +9,17 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// declarationMethod is 申請方法.
+// DeclarationMethod is 申請方法.
 type DeclarationMethod int
 
 const (
 	// NoneDeclaration is 青色確定申告なし.
 	NoneDeclaration DeclarationMethod = iota
 
-	//  ElectronicDeclaration is 電子申告+電子帳簿保存.
+	// ElectronicDeclaration is 電子申告+電子帳簿保存.
 	ElectronicDeclaration
 
-	// ElectronicDeclaration is 紙帳簿.
+	// PaperDeclaration is 紙帳簿.
 	PaperDeclaration
 
 	// SimpleDeclaration is 簡易帳簿.
@@ -27,9 +28,12 @@ const (
 
 var errInvalidValue = errors.New("invalid value")
 
+// UnmarshalYAML はDeclarationMethodをYAMLからデコードする.
 func (m *DeclarationMethod) UnmarshalYAML(value *yaml.Node) error {
 	var str string
-	if err := value.Decode(&str); err != nil {
+
+	err := value.Decode(&str)
+	if err != nil {
 		return fmt.Errorf("failed to value.Decode: %w", err)
 	}
 
@@ -65,7 +69,17 @@ type TaxCalculationInput struct {
 	DependentCount int `yaml:"dependentCount"`
 	// SpouseDeduction is 配偶者控除の適用有無
 	SpouseDeduction bool `yaml:"spouseDeduction"`
-	// Method is 申告方法
+	// EarthquakeInsurance is 地震保険料（控除証明書の証明額）
+	EarthquakeInsurance int `yaml:"earthquakeInsurance"`
+	// LifeInsuranceGeneral is 一般生命保険料（控除証明書の証明額、新制度）
+	LifeInsuranceGeneral int `yaml:"lifeInsuranceGeneral"`
+	// LifeInsuranceMedical is 介護医療保険料（控除証明書の証明額）
+	LifeInsuranceMedical int `yaml:"lifeInsuranceMedical"`
+	// LifeInsurancePension is 個人年金保険料（控除証明書の証明額、新制度）
+	LifeInsurancePension int `yaml:"lifeInsurancePension"`
+	// HousingLoanDeduction is 住宅借入金等特別控除額
+	HousingLoanDeduction int `yaml:"housingLoanDeduction"`
+	// DeclarationMethod is 申告方法
 	DeclarationMethod DeclarationMethod `yaml:"declarationMethod"`
 
 	// furusatoAmount is 内部的に減税効果を算出するためのふるさと納税額
@@ -75,14 +89,19 @@ type TaxCalculationInput struct {
 // LoadInput はTaxCalculationInputをyamlから読み込む.
 func LoadInput(path string) (TaxCalculationInput, error) {
 	// 設定ファイルの読み込み
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // ユーザー指定のパスを開くのは意図的
 	if err != nil {
 		return TaxCalculationInput{}, fmt.Errorf("os.Open err: %w", err)
 	}
-	defer file.Close()
+
+	defer func() {
+		_ = file.Close()
+	}()
 
 	var input TaxCalculationInput
-	if err := yaml.NewDecoder(file).Decode(&input); err != nil {
+
+	err = yaml.NewDecoder(file).Decode(&input)
+	if err != nil {
 		return TaxCalculationInput{}, fmt.Errorf("yaml.NewDecoder().Decode err: %w", err)
 	}
 
@@ -91,11 +110,12 @@ func LoadInput(path string) (TaxCalculationInput, error) {
 
 // PrintInput はTaxCalculationInputをよしなに表示する.
 func PrintInput(input TaxCalculationInput) error {
-	if out, err := yaml.Marshal(input); err != nil {
+	out, err := yaml.Marshal(input)
+	if err != nil {
 		return fmt.Errorf("yaml.Marshal err: %w", err)
-	} else {
-		fmt.Printf("%s", string(out))
 	}
+
+	fmt.Printf("%s", string(out))
 
 	return nil
 }
